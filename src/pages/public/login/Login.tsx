@@ -174,7 +174,7 @@ export default function Login() {
       <Card 
         title={
           <div style={{ textAlign: 'center', fontSize: '20px', fontWeight: 600 }}>
-            Welcome Back
+            Identity Access Management System
           </div>
         } 
         style={{ width: 400, boxShadow: '0 4px 12px rgba(0, 0, 0, 0.08)' }}
