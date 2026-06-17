@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Form, Input, Button, Card, message } from 'antd';
 import { useNavigate } from 'react-router-dom';
 // Importing React Icons for form visual inputs
@@ -9,6 +9,74 @@ import api from '../../../Utils/ApiCalls/Api';
 export default function Login() {
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
+
+  const getIP = async () => {
+    const response = await fetch("https://api.ipify.org?format=json");
+    const data = await response.json();
+
+    console.log(data.ip);
+  };
+
+
+  const getSystemDetails = async () => {
+    const details: Record<string, any> = {};
+
+    // Browser & Device Information
+    details.userAgent = navigator.userAgent;
+    details.platform = navigator.platform;
+    details.language = navigator.language;
+    details.languages = navigator.languages;
+    details.cookieEnabled = navigator.cookieEnabled;
+    details.onLine = navigator.onLine;
+    details.hardwareConcurrency = navigator.hardwareConcurrency; // CPU cores
+    details.deviceMemory = (navigator as any).deviceMemory || "N/A"; // RAM in GB (Chrome)
+    details.vendor = navigator.vendor;
+
+    // Screen Information
+    details.screenWidth = window.screen.width;
+    details.screenHeight = window.screen.height;
+    details.availWidth = window.screen.availWidth;
+    details.availHeight = window.screen.availHeight;
+    details.colorDepth = window.screen.colorDepth;
+    details.pixelDepth = window.screen.pixelDepth;
+
+    // Timezone
+    details.timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+
+    // Current URL
+    details.currentUrl = window.location.href;
+
+    // Public IP
+    try {
+      const ipResponse = await fetch(
+        "https://api.ipify.org?format=json"
+      );
+      const ipData = await ipResponse.json();
+      details.publicIp = ipData.ip;
+    } catch (e) {
+      details.publicIp = "Unable to fetch";
+    }
+
+    // Geolocation
+    try {
+      const location = await new Promise<GeolocationPosition>((resolve, reject) => {
+        navigator.geolocation.getCurrentPosition(
+          // cast resolve to the expected callback type so TS knows the resolved value
+          resolve as PositionCallback,
+          reject as PositionErrorCallback
+        );
+      });
+
+      details.latitude = location.coords.latitude;
+      details.longitude = location.coords.longitude;
+      details.accuracy = location.coords.accuracy;
+    } catch (e) {
+      details.location = "Permission denied";
+    }
+
+    console.log(details);
+    return details;
+  };
 
   // Triggered when Ant Design form passes client-side validation rules
   const handleLoginSubmit = async (values: any) => {
@@ -51,6 +119,9 @@ export default function Login() {
           // Optional: Store other useful profile parameters for your Layouts/Header
           localStorage.setItem('userName', profileResult.data.name);
           localStorage.setItem('userId', profileResult.data.userId);
+
+          window.location.href = profileResult.data.redirectUrl + `?token=${encodeURIComponent(result.data.accessToken)}`;
+
         } else {
           console.warn('Profile fetched, but no user role was found in the payload structure.');
         }
@@ -62,7 +133,14 @@ export default function Login() {
       }
 
       // 3. Complete pipeline and redirect user to the dashboard view node
-      navigate('/home');
+      // navigate('/home');
+      // navigate('https://www.google.com/'); 
+
+      // window.location.href = 'https://www.google.com?utm_token='+result.data.accessToken;
+
+      // window.location.href =`https://www.google.com?utm_source=chatgpt.com`
+      
+      // `https://www.google.com?token=${encodeURIComponent(result.data.accessToken)}`;
 
     } else {
       message.error('Authentication response structural failure: Access token not sent by server.');
@@ -77,6 +155,11 @@ export default function Login() {
     setLoading(false);
   }
 };
+  // useEffect(() => {
+  //   // getSystemDetails().then((data) => {
+  //     // console.log(data);
+  //   });
+  // }, []);
 
 
 
@@ -99,6 +182,7 @@ export default function Login() {
         <Form
           name="springboot_auth_form"
           layout="vertical"
+          // onFinish={getSystemDetails}
           onFinish={handleLoginSubmit}
           requiredMark={false}
         >
@@ -129,6 +213,10 @@ export default function Login() {
               placeholder="Enter your security password" 
               size="large"
             />
+
+
+            {/* <Input.OTP separator={<span>-</span>} /> */}
+
           </Form.Item>
 
           {/* Submit Action Button */}
