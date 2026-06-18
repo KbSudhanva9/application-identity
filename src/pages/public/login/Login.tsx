@@ -79,83 +79,96 @@ export default function Login() {
     return details;
   };
 
-  // Triggered when Ant Design form passes client-side validation rules
-  const handleLoginSubmit = async (values: any) => {
-  setLoading(true);
-  try {
-    // 1. Fire the login request
-    const response = await api.post('/auth/login', {
-      email: values.email,
-      password: values.password,
-    });
+  const getDeviceId = () => {
+    let deviceId = localStorage.getItem("deviceId");
 
-    const result = response.data; 
-
-    // Safe Check: Ensure tokens exist in the response payload before writing to disk
-    if (result && result.data && result.data.accessToken) {
-      
-      // Save tokens securely to your browser's localStorage
-      localStorage.setItem('accessToken', result.data.accessToken);
-      localStorage.setItem('refreshToken', result.data.refreshToken);
-      
-      message.success(result.message || 'Login successful!');
-
-      // 2. Chained Call: Fetch User Profile details using the brand new token
-      try {
-        // Use standard 'axios' here to bypass request interceptor synchronization delays.
-        // Prepend '/api' to cleanly hit your Vite dev server proxy target
-        const profileResponse = await api.get('/auth/profile', {
-          headers: { 
-            'Authorization': `Bearer ${result.data.accessToken}`,
-            'Content-Type': 'application/json'
-          }
-        });
-        
-        const profileResult = profileResponse.data;
-
-        // Extract and assign permissions directly from the expected profile JSON data node
-        if (profileResult && profileResult.data && profileResult.data.role) {
-          localStorage.setItem('role', profileResult.data.role);
-          
-          // Optional: Store other useful profile parameters for your Layouts/Header
-          localStorage.setItem('userName', profileResult.data.name);
-          localStorage.setItem('userId', profileResult.data.userId);
-
-          window.location.href = profileResult.data.redirectUrl + `?token=${encodeURIComponent(result.data.accessToken)}`;
-
-        } else {
-          console.warn('Profile fetched, but no user role was found in the payload structure.');
-        }
-
-      } catch (profileError: any) {
-        // Suppress complete failure: Allow application entry but warn about missing state roles
-        console.error('Chained profile execution failed:', profileError);
-        message.warning('Logged in successfully, but failed to synchronize your user profile role.');
-      }
-
-      // 3. Complete pipeline and redirect user to the dashboard view node
-      // navigate('/home');
-      // navigate('https://www.google.com/'); 
-
-      // window.location.href = 'https://www.google.com?utm_token='+result.data.accessToken;
-
-      // window.location.href =`https://www.google.com?utm_source=chatgpt.com`
-      
-      // `https://www.google.com?token=${encodeURIComponent(result.data.accessToken)}`;
-
-    } else {
-      message.error('Authentication response structural failure: Access token not sent by server.');
+    if (!deviceId) {
+      deviceId = crypto.randomUUID();
+      localStorage.setItem("deviceId", deviceId);
     }
 
-  } catch (error: any) {
-    // Gracefully handle rejection states (e.g. 401 Unauthorized, 403 Forbidden, or server offline)
-    console.error('Authentication Pipeline Error:', error);
-    const errorMsg = error.response?.data?.message || 'Invalid credentials or server connection issue.';
-    message.error(errorMsg);
-  } finally {
-    setLoading(false);
-  }
-};
+    return deviceId;
+  };
+
+  // Triggered when Ant Design form passes client-side validation rules
+  const handleLoginSubmit = async (values: any) => {
+    setLoading(true);
+    try {
+      // 1. Fire the login request
+      const response = await api.post('/auth/login', {
+        email: values.email,
+        password: values.password,
+      });
+
+      const result = response.data;
+
+      // Safe Check: Ensure tokens exist in the response payload before writing to disk
+      if (result && result.data && result.data.accessToken) {
+
+        // Save tokens securely to your browser's localStorage
+        // localStorage.setItem('accessToken', result.data.accessToken);
+        // localStorage.setItem('refreshToken', result.data.refreshToken);
+
+        message.success(result.message || 'Login successful!');
+
+        window.location.href = result.data.redirectUrl + `?sessionId=${encodeURIComponent(result.data.sessionId)}`;
+
+        // 2. Chained Call: Fetch User Profile details using the brand new token
+        // try {
+        //   // Use standard 'axios' here to bypass request interceptor synchronization delays.
+        //   // Prepend '/api' to cleanly hit your Vite dev server proxy target
+        //   const profileResponse = await api.get('/auth/profile', {
+        //     headers: { 
+        //       'Authorization': `Bearer ${result.data.accessToken}`,
+        //       'Content-Type': 'application/json'
+        //     }
+        //   });
+
+        //   const profileResult = profileResponse.data;
+
+        //   // Extract and assign permissions directly from the expected profile JSON data node
+        //   if (profileResult && profileResult.data && profileResult.data.role) {
+        //     localStorage.setItem('role', profileResult.data.role);
+
+        //     // Optional: Store other useful profile parameters for your Layouts/Header
+        //     localStorage.setItem('userName', profileResult.data.name);
+        //     localStorage.setItem('userId', profileResult.data.userId);
+
+        //     window.location.href = profileResult.data.redirectUrl + `?token=${encodeURIComponent(result.data.accessToken)}`;
+
+        //   } else {
+        //     console.warn('Profile fetched, but no user role was found in the payload structure.');
+        //   }
+
+        // } catch (profileError: any) {
+        //   // Suppress complete failure: Allow application entry but warn about missing state roles
+        //   console.error('Chained profile execution failed:', profileError);
+        //   message.warning('Logged in successfully, but failed to synchronize your user profile role.');
+        // }
+
+        // 3. Complete pipeline and redirect user to the dashboard view node
+        // navigate('/home');
+        // navigate('https://www.google.com/'); 
+
+        // window.location.href = 'https://www.google.com?utm_token='+result.data.accessToken;
+
+        // window.location.href =`https://www.google.com?utm_source=chatgpt.com`
+
+        // `https://www.google.com?token=${encodeURIComponent(result.data.accessToken)}`;
+
+      } else {
+        message.error('Authentication response structural failure: Access token not sent by server.');
+      }
+
+    } catch (error: any) {
+      // Gracefully handle rejection states (e.g. 401 Unauthorized, 403 Forbidden, or server offline)
+      console.error('Authentication Pipeline Error:', error);
+      const errorMsg = error.response?.data?.message || 'Invalid credentials or server connection issue.';
+      message.error(errorMsg);
+    } finally {
+      setLoading(false);
+    }
+  };
   // useEffect(() => {
   //   // getSystemDetails().then((data) => {
   //     // console.log(data);
