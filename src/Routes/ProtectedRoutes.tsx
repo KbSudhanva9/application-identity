@@ -21,7 +21,7 @@ const ProtectedRoute = ({ element, allowedRole }: ProtectedRouteProps) => {
             return <Navigate to='/test' />;
         }else if(role === 'ADMIN'){
             return <Navigate to='/admin' />;
-        }else if(role === 'BUYER' || role === 'SELLER'){
+        }else if(role === 'USER'){
             return <Navigate to='/home' />;
         }
     }
