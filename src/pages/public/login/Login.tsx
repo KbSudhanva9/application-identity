@@ -13,18 +13,18 @@ const Login = () => {
   // 1. Core States for tracking time and locking layout windows
 const [timeLeft, setTimeLeft] = useState<number>(0);
 const timerRef = useRef<number | null>(null);
-  
+
 
 // 2. Clear background intervals safely if components unmount
 useEffect(() => {
   return () => {
-    localStorage.clear();
     if (timerRef.current !== null) window.clearInterval(timerRef.current);
   };
 }, []);
 
 // 3. The 3-Minute (180s) Timer Countdown Engine
 useEffect(() => {
+  localStorage.clear();
   if (timeLeft > 0) {
     timerRef.current = window.setInterval(() => {
       setTimeLeft((prevTime) => {
@@ -39,7 +39,7 @@ useEffect(() => {
       });
     }, 1000);
   }
-  
+
   return () => {
     if (timerRef.current !== null) {
       window.clearInterval(timerRef.current);
@@ -86,15 +86,15 @@ const startTimer = () => {
       const activeField = otpType === 'EMAIL' ? 'email' : 'phoneNumber';
       const values = await form.validateFields([activeField]);
       setLoading(true);
-
+      console.log(" handleRequestOtp  " + JSON.stringify(values));
       const contactValue = values[activeField];
       setTargetContact(contactValue);
 
       // Create payload dynamically matching your backend key requirement
       const payload = otpType === 'EMAIL' 
-        ? { email: contactValue } 
-        : { phoneNumber: contactValue };
- console.log(" Before Response data  /request-otp " + JSON.stringify(payload));
+       ? { email: contactValue , channel:'email'} 
+        : { phone: contactValue,channel:'sms' };
+      console.log(" Before Response data  /request-otp " + JSON.stringify(payload));
       // POST Request directly to your exact URL definition
       const response = await api.post('/auth/request-otp', payload);
       console.log(" After Response data  /request-otp "+ response.data);
@@ -127,8 +127,8 @@ const startTimer = () => {
       } else {
         endpoint = '/auth/verify-otp';
         payload = otpType === 'EMAIL' 
-          ? { email: targetContact, otp: values.otp }
-          : { phoneNumber: targetContact, otp: values.otp };
+          ? { email: targetContact, otp: values.otp ,channel:'email'}
+          : { phone: targetContact, otp: values.otp };
       }
 
         console.log("handleFinalValidationSubmit() " + JSON.stringify(payload));
@@ -137,7 +137,7 @@ const startTimer = () => {
 
         console.log("handleFinalValidationSubmit()  AFter api call " + JSON.stringify(result));
       message.success('Validation passed. Redirecting...');
-      
+
       // Save your Access Token if returned in the response payload structure
       if (result?.data?.accessToken) {
         localStorage.setItem('accessToken', result.data.accessToken);
@@ -146,10 +146,10 @@ const startTimer = () => {
       // DYNAMIC REDIRECT CHECK:
       // If the backend sends 'redirectUrl', go there. Otherwise, fallback safely to '/home'
       if (result && result.data && result.data.redirectUrl) {
-        window.location.href = result.data.redirectUrl + `?sessionId=${encodeURIComponent(result.data.sessionId)}`;
+        window.location.href = result.data.redirectUrl +  + `?sessionId=${encodeURIComponent(result.data.sessionId)}`;
       } 
       // else if (result && result.redirectUrl) {
-      //   window.location.href = result.redirectUrl; // Check if it's directly on the root object
+        // window.location.href = result.redirectUrl; // Check if it's directly on the root object
       // } 
       else {
         window.location.href = '/'; // Fallback application route
@@ -160,7 +160,7 @@ const startTimer = () => {
     //  console.error('Validation Pipeline Failure:', JSON.stringify( error));
       const errorMsg = error.response?.data?.message || error.response?.data || 'Validation rejected.';
       message.error(errorMsg);
-       
+
        console.log("⚠️ Error Message text: " + error.message);
        console.log(" API RETURN MESSAGE : " + error.response?.data);
 
@@ -187,7 +187,7 @@ const startTimer = () => {
       } else {
         // Matches your exact URL definition
         endpoint = '/verify-otp';
-        
+
         // Formulates payload matching your exact key structures dynamically
         payload = otpType === 'EMAIL' 
           ? { email: targetContact, otp: values.otp }
@@ -198,7 +198,7 @@ const startTimer = () => {
       const result = response.data;
 
       message.success('Validation passed. Redirecting...');
-      
+
       if (result?.data?.accessToken) {
         localStorage.setItem('accessToken', result.data.accessToken);
       }
@@ -220,7 +220,7 @@ const startTimer = () => {
         style={{ width: 420, boxShadow: '0 4px 12px rgba(0, 0, 0, 0.08)' }}
       >
         <Form form={form} name="dynamic_auth_form" layout="vertical" onFinish={handleFinalValidationSubmit} requiredMark={false}>
-          
+
           {/* Main Mode Switcher */}
           <Form.Item label="Authentication Method" style={{ marginBottom: '20px' }}>
             <Radio.Group value={authMethod} onChange={handleAuthMethodChange} optionType="button" buttonStyle="solid" block>
@@ -299,7 +299,7 @@ const startTimer = () => {
                       disabled={timeLeft === 0} 
                     />
                   </Form.Item>
-                  
+
                   {/* Clean spacing container hosting target switcher link and the anti-flood resend link layout */}
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
                     <Button 
@@ -361,3 +361,4 @@ const startTimer = () => {
 }
 
 export default Login;
+ 
