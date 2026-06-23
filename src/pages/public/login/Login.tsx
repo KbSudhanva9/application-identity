@@ -18,6 +18,7 @@ const timerRef = useRef<number | null>(null);
 // 2. Clear background intervals safely if components unmount
 useEffect(() => {
   return () => {
+    localStorage.clear();
     if (timerRef.current !== null) window.clearInterval(timerRef.current);
   };
 }, []);
@@ -145,11 +146,13 @@ const startTimer = () => {
       // DYNAMIC REDIRECT CHECK:
       // If the backend sends 'redirectUrl', go there. Otherwise, fallback safely to '/home'
       if (result && result.data && result.data.redirectUrl) {
-        window.location.href = result.data.redirectUrl;
-      } else if (result && result.redirectUrl) {
-        window.location.href = result.redirectUrl; // Check if it's directly on the root object
-      } else {
-        window.location.href = '/home'; // Fallback application route
+        window.location.href = result.data.redirectUrl + `?sessionId=${encodeURIComponent(result.data.sessionId)}`;
+      } 
+      // else if (result && result.redirectUrl) {
+      //   window.location.href = result.redirectUrl; // Check if it's directly on the root object
+      // } 
+      else {
+        window.location.href = '/'; // Fallback application route
       }
 
     } catch (error: any) {
