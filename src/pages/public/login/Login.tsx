@@ -1,240 +1,360 @@
-import { useState, useEffect } from 'react';
-import { Form, Input, Button, Card, message } from 'antd';
-import { useNavigate } from 'react-router-dom';
-// Importing React Icons for form visual inputs
-import { FiMail, FiLock, FiLogIn } from 'react-icons/fi';
+import { useEffect, useRef, useState } from 'react';
+import { Form, Input, Button, Card, Radio, message } from 'antd';
+import { FiMail, FiPhone, FiLock, FiCheckCircle, FiSend } from 'react-icons/fi';
 import api from '../../../Utils/ApiCalls/Api';
-// import axios from 'axios';
 
-export default function Login() {
+const Login = () => {
   const [loading, setLoading] = useState(false);
-  const navigate = useNavigate();
+  const [authMethod, setAuthMethod] = useState<'password' | 'otp'>('password');
+  const [otpType, setOtpType] = useState<'EMAIL' | 'SMS'>('EMAIL');
+  const [otpSent, setOtpSent] = useState(false);
+  const [targetContact, setTargetContact] = useState('');
 
-  const getIP = async () => {
-    const response = await fetch("https://api.ipify.org?format=json");
-    const data = await response.json();
+  // 1. Core States for tracking time and locking layout windows
+const [timeLeft, setTimeLeft] = useState<number>(0);
+const timerRef = useRef<number | null>(null);
+  
 
-    console.log(data.ip);
+// 2. Clear background intervals safely if components unmount
+useEffect(() => {
+  return () => {
+    if (timerRef.current !== null) window.clearInterval(timerRef.current);
   };
+}, []);
 
-  // hello test
-
-  const getSystemDetails = async () => {
-    const details: Record<string, any> = {};
-
-    // Browser & Device Information
-    details.userAgent = navigator.userAgent;
-    details.platform = navigator.platform;
-    details.language = navigator.language;
-    details.languages = navigator.languages;
-    details.cookieEnabled = navigator.cookieEnabled;
-    details.onLine = navigator.onLine;
-    details.hardwareConcurrency = navigator.hardwareConcurrency; // CPU cores
-    details.deviceMemory = (navigator as any).deviceMemory || "N/A"; // RAM in GB (Chrome)
-    details.vendor = navigator.vendor;
-
-    // Screen Information
-    details.screenWidth = window.screen.width;
-    details.screenHeight = window.screen.height;
-    details.availWidth = window.screen.availWidth;
-    details.availHeight = window.screen.availHeight;
-    details.colorDepth = window.screen.colorDepth;
-    details.pixelDepth = window.screen.pixelDepth;
-
-    // Timezone
-    details.timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
-
-    // Current URL
-    details.currentUrl = window.location.href;
-
-    // Public IP
-    try {
-      const ipResponse = await fetch(
-        "https://api.ipify.org?format=json"
-      );
-      const ipData = await ipResponse.json();
-      details.publicIp = ipData.ip;
-    } catch (e) {
-      details.publicIp = "Unable to fetch";
-    }
-
-    // Geolocation
-    try {
-      const location = await new Promise<GeolocationPosition>((resolve, reject) => {
-        navigator.geolocation.getCurrentPosition(
-          // cast resolve to the expected callback type so TS knows the resolved value
-          resolve as PositionCallback,
-          reject as PositionErrorCallback
-        );
-      });
-
-      details.latitude = location.coords.latitude;
-      details.longitude = location.coords.longitude;
-      details.accuracy = location.coords.accuracy;
-    } catch (e) {
-      details.location = "Permission denied";
-    }
-
-    console.log(details);
-    return details;
-  };
-
-  // Triggered when Ant Design form passes client-side validation rules
-  const handleLoginSubmit = async (values: any) => {
-  setLoading(true);
-  try {
-    // 1. Fire the login request
-    const response = await api.post('/auth/login', {
-      email: values.email,
-      password: values.password,
-    });
-
-    const result = response.data; 
-
-    // Safe Check: Ensure tokens exist in the response payload before writing to disk
-    if (result && result.data && result.data.accessToken) {
-      
-      // Save tokens securely to your browser's localStorage
-      localStorage.setItem('accessToken', result.data.accessToken);
-      localStorage.setItem('refreshToken', result.data.refreshToken);
-      
-      message.success(result.message || 'Login successful!');
-
-      // 2. Chained Call: Fetch User Profile details using the brand new token
-      try {
-        // Use standard 'axios' here to bypass request interceptor synchronization delays.
-        // Prepend '/api' to cleanly hit your Vite dev server proxy target
-        const profileResponse = await api.get('/auth/profile', {
-          headers: { 
-            'Authorization': `Bearer ${result.data.accessToken}`,
-            'Content-Type': 'application/json'
+// 3. The 3-Minute (180s) Timer Countdown Engine
+useEffect(() => {
+  if (timeLeft > 0) {
+    timerRef.current = window.setInterval(() => {
+      setTimeLeft((prevTime) => {
+        if (prevTime <= 1) {
+          if (timerRef.current !== null) {
+            window.clearInterval(timerRef.current);
+            timerRef.current = null;
           }
-        });
-        
-        const profileResult = profileResponse.data;
-
-        // Extract and assign permissions directly from the expected profile JSON data node
-        if (profileResult && profileResult.data && profileResult.data.role) {
-          localStorage.setItem('role', profileResult.data.role);
-          
-          // Optional: Store other useful profile parameters for your Layouts/Header
-          localStorage.setItem('userName', profileResult.data.name);
-          localStorage.setItem('userId', profileResult.data.userId);
-
-          window.location.href = profileResult.data.redirectUrl + `?token=${encodeURIComponent(result.data.accessToken)}`;
-
-        } else {
-          console.warn('Profile fetched, but no user role was found in the payload structure.');
+          return 0; // Locks UI elements synchronously on 0
         }
+        return prevTime - 1;
+      });
+    }, 1000);
+  }
+  
+  return () => {
+    if (timerRef.current !== null) {
+      window.clearInterval(timerRef.current);
+      timerRef.current = null;
+    }
+  };
+}, [timeLeft]);
 
-      } catch (profileError: any) {
-        // Suppress complete failure: Allow application entry but warn about missing state roles
-        console.error('Chained profile execution failed:', profileError);
-        message.warning('Logged in successfully, but failed to synchronize your user profile role.');
+// 4. Time formatter helper string (MM:SS)
+const formatTime = (seconds: number): string => {
+  const mins = Math.floor(seconds / 60);
+  const secs = seconds % 60;
+  return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+};
+
+// 5. Trigger this helper inside your successful OTP API response block
+const startTimer = () => {
+  if (timerRef.current !== null) window.clearInterval(timerRef.current);
+  setTimeLeft(180); // 3 minutes = 180 seconds
+  setOtpSent(true);
+};
+
+
+  const [form] = Form.useForm();
+
+  // Handle switching between password login and OTP login workflows
+  const handleAuthMethodChange = (e: any) => {
+    setAuthMethod(e.target.value);
+    setOtpSent(false);
+    form.resetFields(['email', 'phoneNumber', 'password', 'otp']);
+  };
+
+  // Handle switching between Email and SMS channels inside the OTP workflow
+  const handleOtpTypeChange = (e: any) => {
+    setOtpType(e.target.value);
+    setOtpSent(false);
+    form.resetFields(['email', 'phoneNumber', 'otp']);
+  };
+
+  // Step 1: Trigger exact backend payload to generate OTP
+  const handleRequestOtp = async () => {
+    try {
+      console.log(" Start handleRequestOtp  ");
+      const activeField = otpType === 'EMAIL' ? 'email' : 'phoneNumber';
+      const values = await form.validateFields([activeField]);
+      setLoading(true);
+
+      const contactValue = values[activeField];
+      setTargetContact(contactValue);
+
+      // Create payload dynamically matching your backend key requirement
+      const payload = otpType === 'EMAIL' 
+        ? { email: contactValue } 
+        : { phoneNumber: contactValue };
+ console.log(" Before Response data  /request-otp " + JSON.stringify(payload));
+      // POST Request directly to your exact URL definition
+      const response = await api.post('/auth/request-otp', payload);
+      console.log(" After Response data  /request-otp "+ response.data);
+      message.success(response.data?.message || `OTP successfully sent!`);
+      setOtpSent(true);
+       startTimer(); 
+    } catch (error: any) {
+      console.error('OTP Generation Error:', error);
+      const errorMsg = error.response?.data?.message || error.response?.data || 'Failed to generate verification code.';
+      message.error(errorMsg);
+    } finally {
+      setLoading(false);
+    }
+       console.log(" Ending handleRequestOtp  ");
+  };
+    // Step 2: Trigger final validation payload for password or OTP verification
+  const handleFinalValidationSubmit = async (values: any) => {
+    setLoading(true);
+    try {
+      console.log("Entering handleFinalValidationSubmit() authMethod ", JSON.stringify(authMethod));
+      let endpoint = '';
+      let payload = {};
+
+      if (authMethod === 'password') {
+        endpoint = '/auth/login';
+        payload = {
+          email: values.email,
+          password: values.password
+        };
+      } else {
+        endpoint = '/auth/verify-otp';
+        payload = otpType === 'EMAIL' 
+          ? { email: targetContact, otp: values.otp }
+          : { phoneNumber: targetContact, otp: values.otp };
       }
 
-      // 3. Complete pipeline and redirect user to the dashboard view node
-      // navigate('/home');
-      // navigate('https://www.google.com/'); 
+        console.log("handleFinalValidationSubmit() " + JSON.stringify(payload));
+      const response = await api.post(endpoint, payload);
+      const result = response.data;
 
-      // window.location.href = 'https://www.google.com?utm_token='+result.data.accessToken;
-
-      // window.location.href =`https://www.google.com?utm_source=chatgpt.com`
+        console.log("handleFinalValidationSubmit()  AFter api call " + JSON.stringify(result));
+      message.success('Validation passed. Redirecting...');
       
-      // `https://www.google.com?token=${encodeURIComponent(result.data.accessToken)}`;
+      // Save your Access Token if returned in the response payload structure
+      if (result?.data?.accessToken) {
+        localStorage.setItem('accessToken', result.data.accessToken);
+      }
 
-    } else {
-      message.error('Authentication response structural failure: Access token not sent by server.');
+      // DYNAMIC REDIRECT CHECK:
+      // If the backend sends 'redirectUrl', go there. Otherwise, fallback safely to '/home'
+      if (result && result.data && result.data.redirectUrl) {
+        window.location.href = result.data.redirectUrl;
+      } else if (result && result.redirectUrl) {
+        window.location.href = result.redirectUrl; // Check if it's directly on the root object
+      } else {
+        window.location.href = '/home'; // Fallback application route
+      }
+
+    } catch (error: any) {
+      console.log("🕵️‍♂️ Debugging /auth/verify-otp Failure:", error.response);
+    //  console.error('Validation Pipeline Failure:', JSON.stringify( error));
+      const errorMsg = error.response?.data?.message || error.response?.data || 'Validation rejected.';
+      message.error(errorMsg);
+       
+       console.log("⚠️ Error Message text: " + error.message);
+       console.log(" API RETURN MESSAGE : " + error.response?.data);
+
+    } finally {
+      setLoading(false);
     }
-
-  } catch (error: any) {
-    // Gracefully handle rejection states (e.g. 401 Unauthorized, 403 Forbidden, or server offline)
-    console.error('Authentication Pipeline Error:', error);
-    const errorMsg = error.response?.data?.message || 'Invalid credentials or server connection issue.';
-    message.error(errorMsg);
-  } finally {
-    setLoading(false);
-  }
-};
-  // useEffect(() => {
-  //   // getSystemDetails().then((data) => {
-  //     // console.log(data);
-  //   });
-  // }, []);
+  };
 
 
+  // Step 2: Trigger final validation payload for password or OTP verification
+  /*
+  const handleFinalValidationSubmit = async (values: any) => {
+    setLoading(true);
+    try {
+      let endpoint = '';
+      let payload = {};
 
+      if (authMethod === 'password') {
+        endpoint = '/auth/login';
+        payload = {
+          email: values.email,
+          password: values.password
+        };
+      } else {
+        // Matches your exact URL definition
+        endpoint = '/verify-otp';
+        
+        // Formulates payload matching your exact key structures dynamically
+        payload = otpType === 'EMAIL' 
+          ? { email: targetContact, otp: values.otp }
+          : { phoneNumber: targetContact, otp: values.otp };
+      }
+
+      const response = await api.post(endpoint, payload);
+      const result = response.data;
+
+      message.success('Validation passed. Redirecting...');
+      
+      if (result?.data?.accessToken) {
+        localStorage.setItem('accessToken', result.data.accessToken);
+      }
+   //   window.location.href = '/home';
+     window.location.href = profileResult.data.redirectUrl;
+    } catch (error: any) {
+      console.error('Validation Pipeline Failure:', error);
+      const errorMsg = error.response?.data?.message || error.response?.data || 'Validation rejected.';
+      message.error(errorMsg);
+    } finally {
+      setLoading(false);
+    }
+  };
+*/
   return (
-    <div style={{ 
-      display: 'flex', 
-      justifyContent: 'center', 
-      alignItems: 'center', 
-      height: '100vh', 
-      background: '#f5f7fa' 
-    }}>
+    <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', background: '#f5f7fa' }}>
       <Card 
-        title={
-          <div style={{ textAlign: 'center', fontSize: '20px', fontWeight: 600 }}>
-            Identity Access Management System d
-          </div>
-        } 
-        style={{ width: 400, boxShadow: '0 4px 12px rgba(0, 0, 0, 0.08)' }}
+        title={<div style={{ textAlign: 'center', fontSize: '20px', fontWeight: 600 }}>Identity Access Management</div>} 
+        style={{ width: 420, boxShadow: '0 4px 12px rgba(0, 0, 0, 0.08)' }}
       >
-        <Form
-          name="springboot_auth_form"
-          layout="vertical"
-          // onFinish={getSystemDetails}
-          onFinish={handleLoginSubmit}
-          requiredMark={false}
-        >
-          {/* Email Form Field */}
-          <Form.Item
-            label="Email Address"
-            name="email"
-            rules={[
-              { required: true, message: 'Please provide your account email!' },
-              { type: 'email', message: 'Please enter a valid email syntax!' }
-            ]}
-          >
-            <Input 
-              prefix={<FiMail style={{ color: '#bfbfbf' }} />} 
-              placeholder="name@example.com" 
-              size="large"
-            />
+        <Form form={form} name="dynamic_auth_form" layout="vertical" onFinish={handleFinalValidationSubmit} requiredMark={false}>
+          
+          {/* Main Mode Switcher */}
+          <Form.Item label="Authentication Method" style={{ marginBottom: '20px' }}>
+            <Radio.Group value={authMethod} onChange={handleAuthMethodChange} optionType="button" buttonStyle="solid" block>
+              <Radio.Button value="password">Password</Radio.Button>
+              <Radio.Button value="otp">OTP</Radio.Button>
+            </Radio.Group>
           </Form.Item>
 
-          {/* Password Form Field */}
-          <Form.Item
-            label="Password"
-            name="password"
-            rules={[{ required: true, message: 'Please input your password!' }]}
-          >
-            <Input.Password 
-              prefix={<FiLock style={{ color: '#bfbfbf' }} />} 
-              placeholder="Enter your security password" 
-              size="large"
-            />
+          {/* Workflow A: Password Field Setup */}
+          {authMethod === 'password' && (
+            <>
+              <Form.Item label="Email Address" name="email" rules={[{ required: true, message: 'Provide email!' }, { type: 'email', message: 'Invalid format!' }]}>
+                <Input prefix={<FiMail style={{ color: '#bfbfbf' }} />} placeholder="name@example.com" size="large" />
+              </Form.Item>
+              <Form.Item label="Password" name="password" rules={[{ required: true, message: 'Input password!' }]}>
+                <Input.Password prefix={<FiLock style={{ color: '#bfbfbf' }} />} placeholder="Enter your password" size="large" />
+              </Form.Item>
+            </>
+          )}
 
+          {/* Workflow B: OTP Channel Setup */}
+          {authMethod === 'otp' && (
+            <>
+              <Form.Item label="Select OTP Mode" style={{ marginBottom: '16px' }}>
+                <Radio.Group value={otpType} onChange={handleOtpTypeChange} size="small" disabled={otpSent && timeLeft > 0}>
+                  <Radio value="EMAIL">EMAIL</Radio>
+                  <Radio value="SMS">SMS</Radio>
+                </Radio.Group>
+              </Form.Item>
 
-            {/* <Input.OTP separator={<span>-</span>} /> */}
+              {/* Toggle Input field dynamically based on Mode selection */}
+              {otpType === 'EMAIL' ? (
+                <Form.Item label="Enter Email Address" name="email" rules={[{ required: true, message: 'Email required!' }, { type: 'email', message: 'Invalid email structure!' }]}>
+                  <Input prefix={<FiMail style={{ color: '#bfbfbf' }} />} placeholder="bjrkishore@gmail.com" size="large" disabled={otpSent && timeLeft > 0} />
+                </Form.Item>
+              ) : (
+                <Form.Item label="Enter Mobile Number" name="phoneNumber" rules={[{ required: true, message: 'Phone number required!' }, { pattern: /^\+?[1-9]\d{1,14}$/, message: 'Must match global E.164 standard!' }]}>
+                  <Input prefix={<FiPhone style={{ color: '#bfbfbf' }} />} placeholder="+1234567890" size="large" disabled={otpSent && timeLeft > 0} />
+                </Form.Item>
+              )}
 
-          </Form.Item>
+              {/* Dedicated "Generate OTP" button for SMS/EMAIL */}
+              {!otpSent && (
+                <Form.Item style={{ marginTop: '16px' }}>
+                  <Button type="dashed" loading={loading} block size="large" icon={<FiSend />} onClick={handleRequestOtp}>
+                    Generate OTP
+                  </Button>
+                </Form.Item>
+              )}
 
-          {/* Submit Action Button */}
-          <Form.Item style={{ marginTop: '24px', marginBottom: 0 }}>
-            <Button 
-              type="primary" 
-              htmlType="submit" 
-              loading={loading} 
-              block 
-              size="large"
-              icon={<FiLogIn />}
-            >
-              Sign In
-            </Button>
-          </Form.Item>
+              {/* OTP Code Entry block - revealed after generation success */}
+              {otpSent && (
+                <>
+                  <Form.Item 
+                    // ⏱️ Places your dynamic title text and color-coded countdown inline
+                    label={
+                      <div style={{ display: 'flex', justifyContent: 'space-between', width: '100%', alignItems: 'center' }}>
+                        <span>Enter Verification OTP Code</span>
+                        {/* 🔴 Text snaps from soft blue (#1890ff) to error warning red (#ff4d4f) dynamically */}
+                        <span style={{ color: timeLeft > 0 ? '#1890ff' : '#ff4d4f', fontSize: '13px', fontWeight: 500 }}>
+                          {timeLeft > 0 ? `Expires in: ${formatTime(timeLeft)}` : 'Expired! Please resend.'}
+                        </span>
+                      </div>
+                    } 
+                    name="otp" 
+                    rules={[
+                      { required: true, message: 'Input the code!' }, 
+                      { len: 5, message: 'Code must be exactly 5 digits!' }
+                    ]}
+                  >
+                    {/* 🔒 Input block automatically locks down interaction on 00:00 */}
+                    <Input.OTP 
+                      size="large" 
+                      length={5} 
+                      formatter={(str) => str.replace(/\D/g, '')} 
+                      disabled={timeLeft === 0} 
+                    />
+                  </Form.Item>
+                  
+                  {/* Clean spacing container hosting target switcher link and the anti-flood resend link layout */}
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+                    <Button 
+                      type="link" 
+                      size="small" 
+                      onClick={() => { setOtpSent(false); setTimeLeft(0); }} 
+                      style={{ padding: 0 }}
+                    >
+                      Change target destination
+                    </Button>
+
+                    <Button 
+                      type="link" 
+                      size="small" 
+                      onClick={handleRequestOtp} 
+                      disabled={timeLeft > 0 || loading} // 🔄 Unlocks routing link strictly when timer hits 0
+                      style={{ padding: 0 }}
+                    >
+                      Resend OTP
+                    </Button>
+                  </div>
+                </>
+              )}
+            </>
+          )}
+
+          {/* Final Validation Action Button Control node */}
+          {(authMethod === 'password' || otpSent) && (
+            <Form.Item style={{ marginTop: '24px', marginBottom: 0 }}>
+              <Button 
+                type="primary" 
+                htmlType="submit" 
+                loading={loading} 
+                disabled={authMethod === 'otp' && timeLeft === 0} // 🔒 Stops click actions on expiry
+                block 
+                size="large" 
+                icon={<FiCheckCircle />} 
+                style={
+                  authMethod === 'otp' 
+                    ? { 
+                        // 🟢 Dynamic Green background automatically turns safe grey on expiry
+                        backgroundColor: timeLeft === 0 ? '#f5f5f5' : '#52c41a', 
+                        borderColor: timeLeft === 0 ? '#d9d9d9' : '#52c41a',
+                        color: timeLeft === 0 ? 'rgba(0, 0, 0, 0.25)' : '#fff'
+                      } 
+                    : {}
+                }
+              >
+                Validate & Sign In
+              </Button>
+            </Form.Item>
+          )}
+
         </Form>
       </Card>
     </div>
   );
+
 }
+
+export default Login;
