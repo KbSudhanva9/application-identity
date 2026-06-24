@@ -2,11 +2,12 @@ import { useEffect, useRef, useState } from 'react';
 import { Form, Input, Button, Card, Radio, message } from 'antd';
 import { FiMail, FiPhone, FiLock, FiCheckCircle, FiSend } from 'react-icons/fi';
 import api from '../../../Utils/ApiCalls/Api';
+import { Link } from 'react-router-dom';
 
 const Login = () => {
   const [loading, setLoading] = useState(false);
   const [authMethod, setAuthMethod] = useState<'password' | 'otp'>('password');
-  const [otpType, setOtpType] = useState<'EMAIL' | 'SMS'>('EMAIL');
+  const [otpType, setOtpType] = useState<'EMAIL' | 'SMS'|'WHATSAPP'>('EMAIL');
   const [otpSent, setOtpSent] = useState(false);
   const [targetContact, setTargetContact] = useState('');
 
@@ -91,9 +92,14 @@ const Login = () => {
       setTargetContact(contactValue);
 
       // Create payload dynamically matching your backend key requirement
-      const payload = otpType === 'EMAIL'
+      /*const payload = otpType === 'EMAIL'
         ? { email: contactValue, channel: 'email' }
-        : { phone: contactValue, channel: 'sms' };
+        : { phone: contactValue, channel: 'sms' }; */
+        const payload = {
+EMAIL: { email: contactValue, channel: 'email' },
+  SMS: { phone: contactValue, channel: 'sms' },
+  WHATSAPP: { phone: contactValue, channel: 'whatsapp' }
+}[otpType];
       console.log(" Before Response data  /request-otp " + JSON.stringify(payload));
       // POST Request directly to your exact URL definition
       const response = await api.post('/auth/request-otp', payload);
@@ -126,9 +132,14 @@ const Login = () => {
         };
       } else {
         endpoint = '/auth/verify-otp';
-        payload = otpType === 'EMAIL'
+       /* payload = otpType === 'EMAIL'
           ? { email: targetContact, otp: values.otp, channel: 'email' }
-          : { phone: targetContact, otp: values.otp };
+          : { phone: targetContact, otp: values.otp };*/
+          payload =  {
+EMAIL: { email: targetContact, otp: values.otp, channel: 'email' },
+  SMS: { phone: targetContact, otp: values.otp,channel: 'sms' },
+  WHATSAPP: { phone: targetContact, otp: values.otp, channel: 'whatsapp' }
+}[otpType];
       }
 
       console.log("handleFinalValidationSubmit() " + JSON.stringify(payload));
@@ -248,6 +259,7 @@ const Login = () => {
                 <Radio.Group value={otpType} onChange={handleOtpTypeChange} size="small" disabled={otpSent && timeLeft > 0}>
                   <Radio value="EMAIL">EMAIL</Radio>
                   <Radio value="SMS">SMS</Radio>
+                  <Radio value="WHATSAPP">WHATSAPP</Radio>
                 </Radio.Group>
               </Form.Item>
 
@@ -352,7 +364,14 @@ const Login = () => {
               </Button>
             </Form.Item>
           )}
-
+<Form.Item style={{ marginTop: 16, textAlign: 'center' }}>
+            <span style={{ fontSize: '14px', color: '#8c8c8c' }}>
+              Don't have an account?{' '}
+              <Link to="/register" style={{ color: '#1890ff' }}>
+                Register here
+              </Link>
+            </span>
+          </Form.Item>
         </Form>
       </Card>
     </div>
