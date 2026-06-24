@@ -150,14 +150,14 @@ EMAIL: { email: targetContact, otp: values.otp, channel: 'email' },
       message.success('Validation passed. Redirecting...');
 
       // Save your Access Token if returned in the response payload structure
-      if (result?.data?.accessToken) {
-        localStorage.setItem('accessToken', result.data.accessToken);
+      if (result?.jwt?.accessToken) {
+        localStorage.setItem('accessToken', result.jwt.accessToken);
       }
 
       // DYNAMIC REDIRECT CHECK:
       // If the backend sends 'redirectUrl', go there. Otherwise, fallback safely to '/home'
-      if (result && result.data && result.data.redirectUrl) {
-        window.location.href = result.data.redirectUrl + `?sessionId=${encodeURIComponent(result.data.sessionId)}`;
+      if (result && result.jwt && result.jwt.redirectUrl) {
+        window.location.href = result.jwt.redirectUrl + `?sessionId=${encodeURIComponent(result.jwt.sessionId)}`;
       }
       // else if (result && result.redirectUrl) {
       // window.location.href = result.redirectUrl; // Check if it's directly on the root object
