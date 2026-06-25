@@ -12,7 +12,7 @@ export const LayoutRoutes = [
     {path: "", element: <Login />},
     {path: "/login", element: <Login />},
     {path: "register", element: <Register />},
-    {path: "reset-password", element: <ResetPassword />},
+
 
     {path: "*", element: <NotFound />}
 
