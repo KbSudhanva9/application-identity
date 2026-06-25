@@ -6,6 +6,8 @@ const { Text, Title } = Typography;
 export default function Profile() {
   const userName = localStorage.getItem('userName') || 'Guest';
   const userId = localStorage.getItem('userId') || '-';
+  const role = localStorage.getItem('role') || '-';
+  const accessToken = localStorage.getItem('accessToken') || '-';
 
   return (
     <div
@@ -44,11 +46,39 @@ export default function Profile() {
             </Title>
 
             <Text type="secondary">
+              Role: {role}
+            </Text>
+            <br />
+
+            <Text type="secondary">
               User ID: {userId}
             </Text>
           </div>
         </Space>
       </Card>
+
+      <Card
+        style={{
+          width: 450,
+          borderRadius: 16,
+          marginLeft: 20
+        }}
+      >
+        <Title
+          level={4}
+          style={{ marginBottom: 20 }}
+        >
+          Access Token
+        </Title>
+        <Text
+          style={{
+            wordBreak: 'break-all'
+          }}
+        >
+          {accessToken}
+        </Text>
+      </Card>
+
     </div>
   );
 }

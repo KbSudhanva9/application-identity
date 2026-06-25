@@ -161,7 +161,7 @@ const AdminLogin = () => {
 
       console.log("handleFinalValidationSubmit() AFter api call " + JSON.stringify(result));
 
-      message.success('Validation passed. Redirecting...');
+      // message.success('Validation passed. Redirecting...');
 
       if (result?.jwt?.accessToken) {
 
@@ -198,7 +198,13 @@ const AdminLogin = () => {
 
             // window.location.href = "/home/profile";
 
-            nav('/home/profile');
+            if (profileResult.data.role === 'ADMIN') {
+              nav('/home/profile');
+            }else{
+              message.error('Access Denied: You do not have permission to access the admin dashboard.');
+              localStorage.clear();
+            }
+            // nav('/home/profile');
 
             //  return <Navigate to='/home' />;
 
