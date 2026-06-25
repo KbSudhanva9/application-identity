@@ -24,13 +24,13 @@ const { Title, Text } = Typography;
 export default function ResetPassword() {
   const [loading, setLoading] = useState(false);
 
-  const [resetMethod, setResetMethod] = useState<'EMAIL' | 'SMS'>('EMAIL');
-  const [authMethod, setAuthMethod] = useState<'password' | 'otp'>('password');
+  // const [resetMethod, setResetMethod] = useState<'EMAIL' | 'SMS'>('EMAIL');
+  // const [authMethod, setAuthMethod] = useState<'password' | 'otp'>('password');
   const [otpType, setOtpType] = useState<'EMAIL' | 'SMS' | 'WHATSAPP'>('EMAIL');
   const [otpSent, setOtpSent] = useState(false);
 
   const [isUserVerified, setIsUserVerified] = useState(false);
-  const [isOtpVerified, setIsOtpVerified] = useState(false);
+  // const [isOtpVerified, setIsOtpVerified] = useState(false);
 
   const [targetContact, setTargetContact] = useState('');
 
@@ -41,6 +41,12 @@ export default function ResetPassword() {
   const navigate = useNavigate();
 
   const timerRef = useRef<number | null>(null);
+
+  const handleOtpTypeChange = (e: any) => {
+    setOtpType(e.target.value);
+    setOtpSent(false);
+    form.resetFields(['email', 'phone', 'otp']);
+  };
 
   const formatTime = (seconds: number): string => {
     const mins = Math.floor(seconds / 60);
@@ -90,7 +96,7 @@ export default function ResetPassword() {
   const handleRequestOtp = async () => {
     try {
       console.log(" Start handleRequestOtp  ");
-      const activeField = otpType === 'EMAIL' ? 'email' : 'phoneNumber';
+      const activeField = otpType === 'EMAIL' ? 'email' : 'phone';
       const values = await form.validateFields([activeField]);
       setLoading(true);
       console.log(" handleRequestOtp  " + JSON.stringify(values));
@@ -108,6 +114,7 @@ export default function ResetPassword() {
       }[otpType];
       console.log(" Before Response data  /request-otp " + JSON.stringify(payload));
       // POST Request directly to your exact URL definition
+
       const response = await api.post('/auth/reset-password-otp', payload);
       console.log(" After Response data  /reset-password-otp " + response.data);
       message.success(response?.data?.message || `OTP successfully sent!`);
@@ -123,15 +130,6 @@ export default function ResetPassword() {
     console.log(" Ending handleRequestOtp  ");
   };
 
-  const handleResetMethodChange = (e: any) => {
-    setResetMethod(e.target.value);
-
-    form.resetFields([
-      'email',
-      'phoneNumber'
-    ]);
-  };
-
   const handleResetPassword = async (
     values: ResetPasswordForm
   ) => {
@@ -139,7 +137,7 @@ export default function ResetPassword() {
 
     try {
       const payload =
-        resetMethod === 'EMAIL'
+        otpType === 'EMAIL'
           ? {
             email: values.email,
             channel: 'email',
@@ -147,7 +145,7 @@ export default function ResetPassword() {
             otp: values.otp
           }
           : {
-            phoneNumber: values.phoneNumber,
+            phone: values.phone,
             channel: 'sms',
             newPassword: values.newPassword,
             otp: values.otp
@@ -242,8 +240,8 @@ export default function ResetPassword() {
             style={{ marginBottom: '16px' }}
           >
             <Radio.Group
-              value={resetMethod}
-              onChange={handleResetMethodChange}
+              value={otpType}
+              onChange={handleOtpTypeChange}
               size="small"
             >
               <Radio value="EMAIL">
@@ -256,7 +254,7 @@ export default function ResetPassword() {
             </Radio.Group>
           </Form.Item>
 
-          {resetMethod === 'EMAIL' ? (
+          {otpType === 'EMAIL' ? (
             <Form.Item
               label="Email Address"
               name="email"
@@ -285,7 +283,7 @@ export default function ResetPassword() {
           ) : (
             <Form.Item
               label="Mobile Number"
-              name="phoneNumber"
+              name="phone"
               rules={[
                 {
                   required: true,

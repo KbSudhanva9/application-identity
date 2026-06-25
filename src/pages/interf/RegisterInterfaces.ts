@@ -9,7 +9,7 @@ export interface RegisterForm {
 
 export interface ResetPasswordForm {
   email?: string;
-  phoneNumber?: string;
+  phone?: string;
   newPassword: string;
   confirmPassword: string;
   otp: string;
