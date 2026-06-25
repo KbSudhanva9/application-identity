@@ -193,6 +193,12 @@ export default function ResetPassword() {
           });
         }, 1000);
       }
+       return () => {
+      if (timerRef.current !== null) {
+        window.clearInterval(timerRef.current);
+        timerRef.current = null;
+      }
+    };
     }, [timeLeft]);
 
   return (
