@@ -12,4 +12,5 @@ export interface ResetPasswordForm {
   phoneNumber?: string;
   newPassword: string;
   confirmPassword: string;
+  otp: string;
 }

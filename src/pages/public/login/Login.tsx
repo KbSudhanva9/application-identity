@@ -364,7 +364,18 @@ EMAIL: { email: targetContact, otp: values.otp, channel: 'email' },
               </Button>
             </Form.Item>
           )}
-<Form.Item style={{ marginTop: 16, textAlign: 'center' }}>
+
+          <Form.Item style={{ marginTop: 16, textAlign: 'center' }}>
+            <span style={{ fontSize: '14px', color: '#8c8c8c' }}>
+              Forgot Password?{' '}
+              <Link to="/reset-password" style={{ color: '#1890ff' }}>
+                Reset Here
+              </Link>
+            </span>
+          </Form.Item>
+ 
+
+          <Form.Item style={{ marginTop: 16, textAlign: 'center' }}>
             <span style={{ fontSize: '14px', color: '#8c8c8c' }}>
               Don't have an account?{' '}
               <Link to="/register" style={{ color: '#1890ff' }}>

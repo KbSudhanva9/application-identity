@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import {
   Form,
   Input,
@@ -17,50 +17,111 @@ import { useNavigate } from 'react-router-dom';
 
 import api from '../../Utils/ApiCalls/Api';
 import type { ResetPasswordForm } from '../interf/RegisterInterfaces';
+import { FiCheckCircle } from 'react-icons/fi';
 
 const { Title, Text } = Typography;
 
 export default function ResetPassword() {
   const [loading, setLoading] = useState(false);
 
-  const [resetMethod, setResetMethod] =
-    useState<'EMAIL' | 'SMS'>('EMAIL');
+  const [resetMethod, setResetMethod] = useState<'EMAIL' | 'SMS'>('EMAIL');
+  const [authMethod, setAuthMethod] = useState<'password' | 'otp'>('password');
+  const [otpType, setOtpType] = useState<'EMAIL' | 'SMS' | 'WHATSAPP'>('EMAIL');
+  const [otpSent, setOtpSent] = useState(false);
+
+  const [isUserVerified, setIsUserVerified] = useState(false);
+  const [isOtpVerified, setIsOtpVerified] = useState(false);
+
+  const [targetContact, setTargetContact] = useState('');
+
+  const [timeLeft, setTimeLeft] = useState<number>(0);
 
   const [form] = Form.useForm();
 
   const navigate = useNavigate();
 
-  const callVerifyEmail = async (channel: string,value: string) => {
-  if (!value) return;
+  const timerRef = useRef<number | null>(null);
 
-  try {
-    // const response = await api.get(
-    //   `/auth/valid-user`
-    // );
+  const formatTime = (seconds: number): string => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+  };
 
-    const payload = {
-      email: channel === 'email' ? value : undefined,
-      phone: channel === 'sms' ? value : undefined,
-      channel: channel
-    };
+  const startTimer = () => {
+    if (timerRef.current !== null) window.clearInterval(timerRef.current);
+    setTimeLeft(180); // 3 minutes = 180 seconds
+    setOtpSent(true);
+  };
 
-    const response = await api.post(
-  '/auth/valid-user',
-  payload
-);
+  const callVerifyEmail = async (channel: string, value: string) => {
+    if (!value) return;
 
-    if (response.data) {
-      message.success('User exists');
-    } else {
-      message.error('User not found');
+    try {
+      const payload = {
+        email: channel === 'email' ? value : undefined,
+        phone: channel === 'sms' ? value : undefined,
+        channel: channel
+      };
+
+      const response = await api.post(
+        '/auth/valid-user',
+        payload
+      );
+
+      if (response.data) {
+        message.success('User exists');
+        setIsUserVerified(true);
+      } else {
+        setIsUserVerified(false);
+        setOtpSent(false);
+        message.error('User not found');
+      }
+    } catch (error: any) {
+      setIsUserVerified(false);
+      setOtpSent(false);
+      message.error(
+        error?.response?.data?.message ||
+        'User verification failed'
+      );
     }
-  } catch (error: any) {
-    message.error(
-      error?.response?.data?.message ||
-      'User verification failed'
-    );
-  }
-};
+  };
+
+  const handleRequestOtp = async () => {
+    try {
+      console.log(" Start handleRequestOtp  ");
+      const activeField = otpType === 'EMAIL' ? 'email' : 'phoneNumber';
+      const values = await form.validateFields([activeField]);
+      setLoading(true);
+      console.log(" handleRequestOtp  " + JSON.stringify(values));
+      const contactValue = values[activeField];
+      setTargetContact(contactValue);
+
+      // Create payload dynamically matching your backend key requirement
+      /*const payload = otpType === 'EMAIL'
+        ? { email: contactValue, channel: 'email' }
+        : { phone: contactValue, channel: 'sms' }; */
+      const payload = {
+        EMAIL: { email: contactValue, channel: 'email' },
+        SMS: { phone: contactValue, channel: 'sms' },
+        WHATSAPP: { phone: contactValue, channel: 'whatsapp' }
+      }[otpType];
+      console.log(" Before Response data  /request-otp " + JSON.stringify(payload));
+      // POST Request directly to your exact URL definition
+      const response = await api.post('/auth/reset-password-otp', payload);
+      console.log(" After Response data  /reset-password-otp " + response.data);
+      message.success(response?.data?.message || `OTP successfully sent!`);
+      setOtpSent(true);
+      startTimer();
+    } catch (error: any) {
+      console.error('OTP Generation Error:', error);
+      const errorMsg = error.response?.data?.message || error.response?.data || 'Failed to generate verification code.';
+      message.error(errorMsg);
+    } finally {
+      setLoading(false);
+    }
+    console.log(" Ending handleRequestOtp  ");
+  };
 
   const handleResetMethodChange = (e: any) => {
     setResetMethod(e.target.value);
@@ -80,23 +141,24 @@ export default function ResetPassword() {
       const payload =
         resetMethod === 'EMAIL'
           ? {
-              email: values.email,
-              newPassword: values.newPassword
-            }
+            email: values.email,
+            channel: 'email',
+            newPassword: values.newPassword,
+            otp: values.otp
+          }
           : {
-              phoneNumber: values.phoneNumber,
-              newPassword: values.newPassword
-            };
+            phoneNumber: values.phoneNumber,
+            channel: 'sms',
+            newPassword: values.newPassword,
+            otp: values.otp
+          };
 
-      const response = await api.post(
+      const response = await api.patch(
         '/auth/reset-password',
         payload
       );
 
-      message.success(
-        response.data.message ||
-          'Password updated successfully'
-      );
+      message.success(response.data.message || 'Password updated successfully');
 
       form.resetFields();
 
@@ -107,12 +169,31 @@ export default function ResetPassword() {
     } catch (error: any) {
       message.error(
         error?.response?.data?.message ||
-          'Failed to update password'
+        'Failed to update password'
       );
     } finally {
       setLoading(false);
     }
   };
+
+
+  useEffect(() => {
+      // localStorage.clear();
+      if (timeLeft > 0) {
+        timerRef.current = window.setInterval(() => {
+          setTimeLeft((prevTime) => {
+            if (prevTime <= 1) {
+              if (timerRef.current !== null) {
+                window.clearInterval(timerRef.current);
+                timerRef.current = null;
+              }
+              return 0; // Locks UI elements synchronously on 0
+            }
+            return prevTime - 1;
+          });
+        }, 1000);
+      }
+    }, [timeLeft]);
 
   return (
     <div
@@ -148,7 +229,7 @@ export default function ResetPassword() {
         <Form
           form={form}
           layout="vertical"
-          onFinish={handleResetPassword}
+        // onFinish={handleResetPassword}
         >
           <Form.Item
             label="Reset Password Via"
@@ -191,8 +272,8 @@ export default function ResetPassword() {
                 prefix={<MailOutlined />}
                 placeholder="Enter email address"
                 onBlur={(e) =>
-    callVerifyEmail('email', e.target.value)
-  }
+                  callVerifyEmail('email', e.target.value)
+                }
               />
             </Form.Item>
           ) : (
@@ -217,83 +298,166 @@ export default function ResetPassword() {
                 size="large"
                 prefix={<PhoneOutlined />}
                 placeholder="+919876543210"
-                 onBlur={(e) =>
-    callVerifyEmail('sms', e.target.value)
-  }
+                onBlur={(e) =>
+                  callVerifyEmail('sms', e.target.value)
+                }
               />
             </Form.Item>
           )}
 
-          <Form.Item
-            label="New Password"
-            name="newPassword"
-            rules={[
-              {
-                required: true,
-                message:
-                  'Please enter new password'
-              }
-            ]}
-          >
-            <Input.Password
-              size="large"
-              prefix={<LockOutlined />}
-              placeholder="Enter new password"
-            />
-          </Form.Item>
+          {(isUserVerified) && (
+            <Form.Item style={{ marginTop: '24px', marginBottom: 0 }}>
+              <Button
+                type="primary"
+                // htmlType="submit"
+                loading={loading}
+                block
+                size="large"
+                icon={<FiCheckCircle />}
+                onClick={() => {
+                  handleRequestOtp();
+                  // message.success('OTP sent successfully');
+                  // setIsOtpVerified(true);
+                }}
+              >
+                Generate OTP
+              </Button>
+            </Form.Item>
+          )}
 
-          <Form.Item
-            label="Confirm Password"
-            name="confirmPassword"
-            dependencies={['newPassword']}
-            rules={[
-              {
-                required: true,
-                message:
-                  'Please confirm password'
-              },
-              ({ getFieldValue }) => ({
-                validator(_, value) {
-                  if (
-                    !value ||
-                    getFieldValue(
-                      'newPassword'
-                    ) === value
-                  ) {
-                    return Promise.resolve();
+          {(otpSent) && (
+            <>
+              <Form.Item
+                    // ⏱️ Places your dynamic title text and color-coded countdown inline
+                    label={
+                      <div style={{ display: 'flex', justifyContent: 'space-between', width: '100%', alignItems: 'center' }}>
+                        <span>Enter Verification OTP Code</span>
+                        {/* 🔴 Text snaps from soft blue (#1890ff) to error warning red (#ff4d4f) dynamically */}
+                        <span style={{ color: timeLeft > 0 ? '#1890ff' : '#ff4d4f', fontSize: '13px', fontWeight: 500 }}>
+                          {timeLeft > 0 ? `Expires in: ${formatTime(timeLeft)}` : 'Expired! Please resend.'}
+                        </span>
+                      </div>
+                    }
+                    name="otp"
+                    rules={[
+                      { required: true, message: 'Input the code!' },
+                      { len: 5, message: 'Code must be exactly 5 digits!' }
+                    ]}
+                  >
+                    {/* 🔒 Input block automatically locks down interaction on 00:00 */}
+                    <Input.OTP
+                      size="large"
+                      length={5}
+                      formatter={(str) => str.replace(/\D/g, '')}
+                      // disabled={timeLeft === 0}
+                    />
+                  </Form.Item>
+
+                  {/* Clean spacing container hosting target switcher link and the anti-flood resend link layout */}
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+                    <Button
+                      type="link"
+                      size="small"
+                      onClick={() => { setIsUserVerified(false); setOtpSent(false); setTimeLeft(0); }}
+                      style={{ padding: 0 }}
+                    >
+                      Change target destination
+                    </Button>
+
+                    <Button
+                      type="link"
+                      size="small"
+                      onClick={handleRequestOtp}
+                      disabled={timeLeft > 0 || loading} // 🔄 Unlocks routing link strictly when timer hits 0
+                      style={{ padding: 0 }}
+                    >
+                      Resend OTP
+                    </Button>
+                  </div>
+
+              <Form.Item
+                label="New Password"
+                name="newPassword"
+                rules={[
+                  {
+                    required: true,
+                    message:
+                      'Please enter new password'
                   }
+                ]}
+              >
+                <Input.Password
+                  size="large"
+                  prefix={<LockOutlined />}
+                  placeholder="Enter new password"
+                />
+              </Form.Item>
 
-                  return Promise.reject(
-                    new Error(
-                      'Passwords do not match'
-                    )
-                  );
-                }
-              })
-            ]}
-          >
-            <Input.Password
-              size="large"
-              prefix={<LockOutlined />}
-              placeholder="Confirm password"
-            />
-          </Form.Item>
+              <Form.Item
+                label="Confirm Password"
+                name="confirmPassword"
+                dependencies={['newPassword']}
+                rules={[
+                  {
+                    required: true,
+                    message:
+                      'Please confirm password'
+                  },
+                  ({ getFieldValue }) => ({
+                    validator(_, value) {
+                      if (
+                        !value ||
+                        getFieldValue(
+                          'newPassword'
+                        ) === value
+                      ) {
+                        return Promise.resolve();
+                      }
 
-          <Form.Item
-            style={{
-              marginTop: 24
-            }}
-          >
-            <Button
-              type="primary"
-              htmlType="submit"
-              block
-              size="large"
-              loading={loading}
-            >
-              Update Password
-            </Button>
-          </Form.Item>
+                      return Promise.reject(
+                        new Error(
+                          'Passwords do not match'
+                        )
+                      );
+                    }
+                  })
+                ]}
+              >
+                <Input.Password
+                  size="large"
+                  prefix={<LockOutlined />}
+                  placeholder="Confirm password"
+                />
+              </Form.Item>
+              {/* </>
+          )} */}
+
+              <Form.Item
+                style={{
+                  marginTop: 24
+                }}
+              >
+                <Button
+                  type="primary"
+                  // htmlType="submit"
+                  onClick={async () => {
+                    try {
+                      const values = await form.validateFields();
+                      await handleResetPassword(values as ResetPasswordForm);
+                    } catch (err) {
+                      // validation failed - do nothing
+                    }
+                  }}
+                  block
+                  size="large"
+                  loading={loading}
+                >
+                  Verify & Update Password
+                </Button>
+              </Form.Item>
+            
+            </>
+          )}
 
           <Form.Item
             style={{
