@@ -2,15 +2,15 @@ import { useEffect, useRef, useState } from 'react';
 import { Form, Input, Button, Card, Radio, message } from 'antd';
 import { FiMail, FiPhone, FiLock, FiCheckCircle, FiSend } from 'react-icons/fi';
 import api from '../../../Utils/ApiCalls/Api';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 
 const AdminLogin = () => {
   const [loading, setLoading] = useState(false);
   const [authMethod, setAuthMethod] = useState<'password' | 'otp'>('password');
-  const [otpType, setOtpType] = useState<'EMAIL' | 'SMS'|'WHATSAPP'>('EMAIL');
+  const [otpType, setOtpType] = useState<'EMAIL' | 'SMS' | 'WHATSAPP'>('EMAIL');
   const [otpSent, setOtpSent] = useState(false);
   const [targetContact, setTargetContact] = useState('');
-
+  const nav = useNavigate();
   // 1. Core States for tracking time and locking layout windows
   const [timeLeft, setTimeLeft] = useState<number>(0);
   const timerRef = useRef<number | null>(null);
@@ -91,11 +91,11 @@ const AdminLogin = () => {
       const contactValue = values[activeField];
       setTargetContact(contactValue);
 
-        const payload = {
-EMAIL: { email: contactValue, channel: 'email' },
-  SMS: { phone: contactValue, channel: 'sms' },
-  WHATSAPP: { phone: contactValue, channel: 'whatsapp' }
-}[otpType];
+      const payload = {
+        EMAIL: { email: contactValue, channel: 'email' },
+        SMS: { phone: contactValue, channel: 'sms' },
+        WHATSAPP: { phone: contactValue, channel: 'whatsapp' }
+      }[otpType];
       console.log(" Before Response data  /request-otp " + JSON.stringify(payload));
       // POST Request directly to your exact URL definition
       const response = await api.post('/auth/request-otp', payload);
@@ -115,101 +115,148 @@ EMAIL: { email: contactValue, channel: 'email' },
 
   const handleFinalValidationSubmit = async (values: any) => {
 
-  setLoading(true);
+    setLoading(true);
 
-  try {
+    try {
 
-    console.log("Entering handleFinalValidationSubmit() authMethod ", JSON.stringify(authMethod));
+      console.log("Entering handleFinalValidationSubmit() authMethod ", JSON.stringify(authMethod));
 
-    let endpoint = '';
+      let endpoint = '';
 
-    let payload = {};
- 
-    if (authMethod === 'password') {
+      let payload = {};
 
-      endpoint = '/auth/login';
+      if (authMethod === 'password') {
 
-      payload = {
+        endpoint = '/auth/login';
 
-        email: values.email,
+        payload = {
 
-        password: values.password
+          email: values.email,
 
-      };
+          password: values.password
 
-    } else {
+        };
 
-      endpoint = '/auth/verify-otp';
+      } else {
 
-      payload = {
+        endpoint = '/auth/verify-otp';
 
-        EMAIL: { email: targetContact, otp: values.otp, channel: 'email' },
+        payload = {
 
-        SMS: { phone: targetContact, otp: values.otp, channel: 'sms' },
+          EMAIL: { email: targetContact, otp: values.otp, channel: 'email' },
 
-        WHATSAPP: { phone: targetContact, otp: values.otp, channel: 'whatsapp' }
+          SMS: { phone: targetContact, otp: values.otp, channel: 'sms' },
 
-      }[otpType];
+          WHATSAPP: { phone: targetContact, otp: values.otp, channel: 'whatsapp' }
+
+        }[otpType];
+
+      }
+
+      console.log("handleFinalValidationSubmit() " + JSON.stringify(payload));
+
+      const response = await api.post(endpoint, payload);
+
+      const result = response.data;
+
+      console.log("handleFinalValidationSubmit() AFter api call " + JSON.stringify(result));
+
+      message.success('Validation passed. Redirecting...');
+
+      if (result?.jwt?.accessToken) {
+
+        localStorage.setItem('accessToken', result.jwt.accessToken);
+
+      }
+
+      if (result && result.jwt && result.jwt.redirectUrl) {
+
+
+        // nav('/home/profile');
+
+        try {
+          // Use standard 'axios' here to bypass request interceptor synchronization delays.
+          // Prepend '/api' to cleanly hit your Vite dev server proxy target
+          const profileResponse = await api.get('/auth/profile', {
+            headers: { 
+              'Authorization': `Bearer ${result.jwt.accessToken}`,
+              'Content-Type': 'application/json'
+            }
+          });
+
+          const profileResult = profileResponse.data;
+
+          // Extract and assign permissions directly from the expected profile JSON data node
+          if (profileResult && profileResult.data && profileResult.data.role) {
+            localStorage.setItem('role', profileResult.data.role);
+
+            // Optional: Store other useful profile parameters for your Layouts/Header
+            localStorage.setItem('userName', profileResult.data.name);
+            localStorage.setItem('userId', profileResult.data.userId);
+
+            // window.location.href = profileResult.data.redirectUrl + `?token=${encodeURIComponent(data.accessToken)}`;
+
+            // window.location.href = "/home/profile";
+
+            nav('/home/profile');
+
+            //  return <Navigate to='/home' />;
+
+          } else {
+            console.warn('Profile fetched, but no user role was found in the payload structure.');
+          }
+
+        } catch (profileError: any) {
+          // Suppress complete failure: Allow application entry but warn about missing state roles
+          console.error('Chained profile execution failed:', profileError);
+          message.warning('Logged in successfully, but failed to synchronize your user profile role.');
+        }
+
+
+        // window.location.href = result.jwt.redirectUrl + `?sessionId=${encodeURIComponent(result.jwt.sessionId)}`;
+      }
+      // else if (result && result.redirectUrl) {
+      // window.location.href = result.redirectUrl; // Check if it's directly on the root object
+      // } 
+
+        // window.location.href = result.jwt.redirectUrl + `?sessionId=${encodeURIComponent(result.jwt.sessionId)}`;
+      // } else {
+
+        // window.location.href = '/';
+
+      // }
+
+    } catch (error: any) {
+
+      console.log("🕵️‍♂️ Debugging Failure:", error.response);
+
+      // 1. SAFE UNPACKING: Ensure errorMsg is strictly a plain string, never an object
+
+      const rawData = error.response?.data?.message || error.response?.data;
+
+      const errorMsg = typeof rawData === 'object' ? JSON.stringify(rawData) : (rawData || 'Validation rejected.');
+
+      // 2. Clear UI message display instantly
+
+      message.error(errorMsg);
+
+      // 3. SAFE STORAGE: Store only text strings
+
+      localStorage.setItem('pending_error', errorMsg);
+
+      console.error('Validation Pipeline Failure:', JSON.stringify(errorMsg));
+
+      console.log("⚠️ Error Message text: " + error.message);
+
+      console.log(" API RETURN MESSAGE : " + JSON.stringify(error.response?.data?.message));
+
+    } finally {
+
+      setLoading(false);
 
     }
- 
-    console.log("handleFinalValidationSubmit() " + JSON.stringify(payload));
 
-    const response = await api.post(endpoint, payload);
-
-    const result = response.data;
- 
-    console.log("handleFinalValidationSubmit() AFter api call " + JSON.stringify(result));
-
-    message.success('Validation passed. Redirecting...');
- 
-    if (result?.jwt?.accessToken) {
-
-      localStorage.setItem('accessToken', result.jwt.accessToken);
-
-    }
- 
-    if (result && result.jwt && result.jwt.redirectUrl) {
-
-      window.location.href = result.jwt.redirectUrl + `?sessionId=${encodeURIComponent(result.jwt.sessionId)}`;
-
-    } else {
-
-      window.location.href = '/'; 
-
-    }
- 
-  } catch (error: any) {
-
-    console.log("🕵️‍♂️ Debugging Failure:", error.response);
-
-    // 1. SAFE UNPACKING: Ensure errorMsg is strictly a plain string, never an object
-
-    const rawData = error.response?.data?.message || error.response?.data;
-
-    const errorMsg = typeof rawData === 'object' ? JSON.stringify(rawData) : (rawData || 'Validation rejected.');
- 
-    // 2. Clear UI message display instantly
-
-    message.error(errorMsg);
-
-    // 3. SAFE STORAGE: Store only text strings
-
-    localStorage.setItem('pending_error', errorMsg);
- 
-    console.error('Validation Pipeline Failure:', JSON.stringify(errorMsg));
-
-    console.log("⚠️ Error Message text: " + error.message);
-
-    console.log(" API RETURN MESSAGE : " + JSON.stringify(error.response?.data?.message));
- 
-  } finally {
-
-    setLoading(false);
-
-  }
-
-};
+  };
 
 
 
@@ -355,7 +402,7 @@ EMAIL: { email: contactValue, channel: 'email' },
           )}
 
 
-<Form.Item style={{ marginTop: 16, textAlign: 'center' }}>
+          <Form.Item style={{ marginTop: 16, textAlign: 'center' }}>
             <span style={{ fontSize: '14px', color: '#8c8c8c' }}>
               Don't have an account?{' '}
               <Link to="/register" style={{ color: '#1890ff' }}>
