@@ -2,9 +2,10 @@ import { useEffect, useRef, useState } from 'react';
 import { Form, Input, Button, Card, Radio, message } from 'antd';
 import { FiMail, FiPhone, FiLock, FiCheckCircle, FiSend } from 'react-icons/fi';
 import api from '../../../Utils/ApiCalls/Api';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 
 const Login = () => {
+  const nav = useNavigate();
   const [loading, setLoading] = useState(false);
   const [authMethod, setAuthMethod] = useState<'password' | 'otp'>('password');
   const [otpType, setOtpType] = useState<'EMAIL' | 'SMS'|'WHATSAPP'>('EMAIL');
@@ -96,10 +97,10 @@ const Login = () => {
         ? { email: contactValue, channel: 'email' }
         : { phone: contactValue, channel: 'sms' }; */
         const payload = {
-EMAIL: { email: contactValue, channel: 'email' },
-  SMS: { phone: contactValue, channel: 'sms' },
-  WHATSAPP: { phone: contactValue, channel: 'whatsapp' }
-}[otpType];
+          EMAIL: { email: contactValue, channel: 'email' },
+          SMS: { phone: contactValue, channel: 'sms' },
+          WHATSAPP: { phone: contactValue, channel: 'whatsapp' }
+        }[otpType];
       console.log(" Before Response data  /request-otp " + JSON.stringify(payload));
       // POST Request directly to your exact URL definition
       const response = await api.post('/auth/request-otp', payload);
@@ -136,10 +137,10 @@ EMAIL: { email: contactValue, channel: 'email' },
           ? { email: targetContact, otp: values.otp, channel: 'email' }
           : { phone: targetContact, otp: values.otp };*/
           payload =  {
-EMAIL: { email: targetContact, otp: values.otp, channel: 'email' },
-  SMS: { phone: targetContact, otp: values.otp,channel: 'sms' },
-  WHATSAPP: { phone: targetContact, otp: values.otp, channel: 'whatsapp' }
-}[otpType];
+            EMAIL: { email: targetContact, otp: values.otp, channel: 'email' },
+            SMS: { phone: targetContact, otp: values.otp,channel: 'sms' },
+            WHATSAPP: { phone: targetContact, otp: values.otp, channel: 'whatsapp' }
+          }[otpType];
       }
 
       console.log("handleFinalValidationSubmit() " + JSON.stringify(payload));
@@ -154,16 +155,43 @@ EMAIL: { email: targetContact, otp: values.otp, channel: 'email' },
         localStorage.setItem('accessToken', result.jwt.accessToken);
       }
 
+      // ----------------SSO-Login----------------
       // DYNAMIC REDIRECT CHECK:
-      // If the backend sends 'redirectUrl', go there. Otherwise, fallback safely to '/home'
+      // if (result && result.jwt && result.jwt.redirectUrl) {
+      //   window.location.href = result.jwt.redirectUrl + `?sessionId=${encodeURIComponent(result.jwt.sessionId)}`;
+      // } else {
+      //   window.location.href = '/'; // Fallback application route
+      // }
+      // ----------------SSO-Login----------------
+
+
       if (result && result.jwt && result.jwt.redirectUrl) {
-        window.location.href = result.jwt.redirectUrl + `?sessionId=${encodeURIComponent(result.jwt.sessionId)}`;
-      }
-      // else if (result && result.redirectUrl) {
-      // window.location.href = result.redirectUrl; // Check if it's directly on the root object
-      // } 
-      else {
-        window.location.href = '/'; // Fallback application route
+        try {
+          const profileResponse = await api.get('/auth/profile', {
+            headers: { 
+              'Authorization': `Bearer ${result.jwt.accessToken}`,
+              'Content-Type': 'application/json'
+            }
+          });
+
+          const profileResult = profileResponse.data;
+
+          if (profileResult && profileResult.data && profileResult.data.role) {
+            localStorage.setItem('role', profileResult.data.role);
+
+            localStorage.setItem('userName', profileResult.data.name);
+            localStorage.setItem('userId', profileResult.data.userId);
+
+            nav('/home/profile');
+
+          } else {
+            console.warn('Profile fetched, but no user role was found in the payload structure.');
+          }
+
+        } catch (profileError: any) {
+          console.error('Chained profile execution failed:', profileError);
+          message.warning('Logged in successfully, but failed to synchronize your user profile role.');
+        }
       }
 
     } catch (error: any) {
