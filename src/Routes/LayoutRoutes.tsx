@@ -14,8 +14,7 @@ export const LayoutRoutes = [
     {path: "/login", element: <Login />},
     {path: "register", element: <Register />},
     {path: "reset-password", element: <ResetPassword />},
-    {path: "admin", element: <AdminLogin />}
-
+    {path: "admin", element: <AdminLogin />},
 
     {path: "*", element: <NotFound />}
 
