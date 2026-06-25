@@ -117,68 +117,166 @@ EMAIL: { email: contactValue, channel: 'email' },
     console.log(" Ending handleRequestOtp  ");
   };
   // Step 2: Trigger final validation payload for password or OTP verification
+//   const handleFinalValidationSubmit = async (values: any) => {
+//     setLoading(true);
+//     try {
+//       console.log("Entering handleFinalValidationSubmit() authMethod ", JSON.stringify(authMethod));
+//       let endpoint = '';
+//       let payload = {};
+
+//       if (authMethod === 'password') {
+//         endpoint = '/auth/login';
+//         payload = {
+//           email: values.email,
+//           password: values.password
+//         };
+//       } else {
+//         endpoint = '/auth/verify-otp';
+//        /* payload = otpType === 'EMAIL'
+//           ? { email: targetContact, otp: values.otp, channel: 'email' }
+//           : { phone: targetContact, otp: values.otp };*/
+//           payload =  {
+// EMAIL: { email: targetContact, otp: values.otp, channel: 'email' },
+//   SMS: { phone: targetContact, otp: values.otp,channel: 'sms' },
+//   WHATSAPP: { phone: targetContact, otp: values.otp, channel: 'whatsapp' }
+// }[otpType];
+//       }
+
+//       console.log("handleFinalValidationSubmit() " + JSON.stringify(payload));
+//       const response = await api.post(endpoint, payload);
+//       const result = response.data;
+
+//       console.log("handleFinalValidationSubmit()  AFter api call " + JSON.stringify(result));
+//       message.success('Validation passed. Redirecting...');
+
+//       // Save your Access Token if returned in the response payload structure
+//       if (result?.jwt?.accessToken) {
+//         localStorage.setItem('accessToken', result.jwt.accessToken);
+//       }
+
+//       // DYNAMIC REDIRECT CHECK:
+//       // If the backend sends 'redirectUrl', go there. Otherwise, fallback safely to '/home'
+//       if (result && result.jwt && result.jwt.redirectUrl) {
+//         window.location.href = result.jwt.redirectUrl + `?sessionId=${encodeURIComponent(result.jwt.sessionId)}`;
+//       }
+//       // else if (result && result.redirectUrl) {
+//       // window.location.href = result.redirectUrl; // Check if it's directly on the root object
+//       // } 
+//       else {
+//         window.location.href = '/'; // Fallback application route
+//       }
+
+//     } catch (error: any) {
+//       console.log("🕵️‍♂️ Debugging /auth/verify-otp Failure:", error.response);
+//       //  console.error('Validation Pipeline Failure:', JSON.stringify( error));
+//       const errorMsg = error.response?.data?.message || error.response?.data || 'Validation rejected.';
+//       message.error(errorMsg);
+
+//       console.log("⚠️ Error Message text: " + error.message);
+//       console.log(" API RETURN MESSAGE : " + error.response?.data);
+
+//     } finally {
+//       setLoading(false);
+//     }
+//   };
+
   const handleFinalValidationSubmit = async (values: any) => {
-    setLoading(true);
-    try {
-      console.log("Entering handleFinalValidationSubmit() authMethod ", JSON.stringify(authMethod));
-      let endpoint = '';
-      let payload = {};
 
-      if (authMethod === 'password') {
-        endpoint = '/auth/login';
-        payload = {
-          email: values.email,
-          password: values.password
-        };
-      } else {
-        endpoint = '/auth/verify-otp';
-       /* payload = otpType === 'EMAIL'
-          ? { email: targetContact, otp: values.otp, channel: 'email' }
-          : { phone: targetContact, otp: values.otp };*/
-          payload =  {
-EMAIL: { email: targetContact, otp: values.otp, channel: 'email' },
-  SMS: { phone: targetContact, otp: values.otp,channel: 'sms' },
-  WHATSAPP: { phone: targetContact, otp: values.otp, channel: 'whatsapp' }
-}[otpType];
-      }
+  setLoading(true);
 
-      console.log("handleFinalValidationSubmit() " + JSON.stringify(payload));
-      const response = await api.post(endpoint, payload);
-      const result = response.data;
+  try {
 
-      console.log("handleFinalValidationSubmit()  AFter api call " + JSON.stringify(result));
-      message.success('Validation passed. Redirecting...');
+    console.log("Entering handleFinalValidationSubmit() authMethod ", JSON.stringify(authMethod));
 
-      // Save your Access Token if returned in the response payload structure
-      if (result?.jwt?.accessToken) {
-        localStorage.setItem('accessToken', result.jwt.accessToken);
-      }
+    let endpoint = '';
 
-      // DYNAMIC REDIRECT CHECK:
-      // If the backend sends 'redirectUrl', go there. Otherwise, fallback safely to '/home'
-      if (result && result.jwt && result.jwt.redirectUrl) {
-        window.location.href = result.jwt.redirectUrl + `?sessionId=${encodeURIComponent(result.jwt.sessionId)}`;
-      }
-      // else if (result && result.redirectUrl) {
-      // window.location.href = result.redirectUrl; // Check if it's directly on the root object
-      // } 
-      else {
-        window.location.href = '/'; // Fallback application route
-      }
+    let payload = {};
+ 
+    if (authMethod === 'password') {
 
-    } catch (error: any) {
-      console.log("🕵️‍♂️ Debugging /auth/verify-otp Failure:", error.response);
-      //  console.error('Validation Pipeline Failure:', JSON.stringify( error));
-      const errorMsg = error.response?.data?.message || error.response?.data || 'Validation rejected.';
-      message.error(errorMsg);
+      endpoint = '/auth/login';
 
-      console.log("⚠️ Error Message text: " + error.message);
-      console.log(" API RETURN MESSAGE : " + error.response?.data);
+      payload = {
 
-    } finally {
-      setLoading(false);
+        email: values.email,
+
+        password: values.password
+
+      };
+
+    } else {
+
+      endpoint = '/auth/verify-otp';
+
+      payload = {
+
+        EMAIL: { email: targetContact, otp: values.otp, channel: 'email' },
+
+        SMS: { phone: targetContact, otp: values.otp, channel: 'sms' },
+
+        WHATSAPP: { phone: targetContact, otp: values.otp, channel: 'whatsapp' }
+
+      }[otpType];
+
     }
-  };
+ 
+    console.log("handleFinalValidationSubmit() " + JSON.stringify(payload));
+
+    const response = await api.post(endpoint, payload);
+
+    const result = response.data;
+ 
+    console.log("handleFinalValidationSubmit() AFter api call " + JSON.stringify(result));
+
+    message.success('Validation passed. Redirecting...');
+ 
+    if (result?.jwt?.accessToken) {
+
+      localStorage.setItem('accessToken', result.jwt.accessToken);
+
+    }
+ 
+    if (result && result.jwt && result.jwt.redirectUrl) {
+
+      window.location.href = result.jwt.redirectUrl + `?sessionId=${encodeURIComponent(result.jwt.sessionId)}`;
+
+    } else {
+
+      window.location.href = '/'; 
+
+    }
+ 
+  } catch (error: any) {
+
+    console.log("🕵️‍♂️ Debugging Failure:", error.response);
+
+    // 1. SAFE UNPACKING: Ensure errorMsg is strictly a plain string, never an object
+
+    const rawData = error.response?.data?.message || error.response?.data;
+
+    const errorMsg = typeof rawData === 'object' ? JSON.stringify(rawData) : (rawData || 'Validation rejected.');
+ 
+    // 2. Clear UI message display instantly
+
+    message.error(errorMsg);
+
+    // 3. SAFE STORAGE: Store only text strings
+
+    localStorage.setItem('pending_error', errorMsg);
+ 
+    console.error('Validation Pipeline Failure:', JSON.stringify(errorMsg));
+
+    console.log("⚠️ Error Message text: " + error.message);
+
+    console.log(" API RETURN MESSAGE : " + JSON.stringify(error.response?.data?.message));
+ 
+  } finally {
+
+    setLoading(false);
+
+  }
+
+};
 
 
   // Step 2: Trigger final validation payload for password or OTP verification
@@ -364,6 +462,16 @@ EMAIL: { email: targetContact, otp: values.otp, channel: 'email' },
               </Button>
             </Form.Item>
           )}
+
+<Form.Item style={{ marginTop: 16, textAlign: 'center' }}>
+            <span style={{ fontSize: '14px', color: '#8c8c8c' }}>
+              Forgot Password?{' '}
+              <Link to="/reset-password" style={{ color: '#1890ff' }}>
+                Reset Here
+              </Link>
+            </span>
+          </Form.Item>
+
 <Form.Item style={{ marginTop: 16, textAlign: 'center' }}>
             <span style={{ fontSize: '14px', color: '#8c8c8c' }}>
               Don't have an account?{' '}
