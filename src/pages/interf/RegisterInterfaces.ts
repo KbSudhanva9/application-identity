@@ -6,3 +6,10 @@ export interface RegisterForm {
   role: string;
   phone: string;
 }
+
+export interface ResetPasswordForm {
+  email?: string;
+  phoneNumber?: string;
+  newPassword: string;
+  confirmPassword: string;
+}
